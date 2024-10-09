@@ -1,17 +1,25 @@
 package com.chatgptlite.wanted.ui.conversations.components
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PhoneInTalk
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.ActivityCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chatgptlite.wanted.ui.conversations.ConversationViewModel
 import kotlinx.coroutines.launch
@@ -22,10 +30,41 @@ fun TextInput(
     conversationViewModel: ConversationViewModel = hiltViewModel()
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    var startRecording by remember { mutableStateOf(false) }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        if (it) {
+            Toast.makeText(context, "Permission Granted", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Permission Denied", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     TextInputIn(
         sendMessage = { text ->
             coroutineScope.launch {
                 conversationViewModel.sendMessage(text)
+            }
+        },
+        recordAudio = {
+            coroutineScope.launch {
+                if (ActivityCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.RECORD_AUDIO
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                }
+                startRecording = !startRecording
+                if (startRecording) {
+                    Toast.makeText(context, "开始录制声音", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "录制结束", Toast.LENGTH_SHORT).show()
+                }
+                conversationViewModel.audioRecord(context, startRecording)
             }
         }
     )
@@ -34,7 +73,8 @@ fun TextInput(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TextInputIn(
-    sendMessage: (String) -> Unit
+    sendMessage: (String) -> Unit,
+    recordAudio: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     var text by remember { mutableStateOf(TextFieldValue("")) }
@@ -87,6 +127,19 @@ private fun TextInputIn(
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     }
+
+                    IconButton(onClick = {
+                        scope.launch {
+                            recordAudio()
+                        }
+                    }) {
+                        Icon(
+                            Icons.Filled.PhoneInTalk,
+                            "recording",
+                            modifier = Modifier.size(26.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
             }
         }
@@ -98,6 +151,7 @@ private fun TextInputIn(
 fun PreviewTextInput(
 ) {
     TextInputIn(
-        sendMessage = {}
+        sendMessage = {},
+        recordAudio = {}
     )
 }

@@ -1,5 +1,6 @@
 package com.chatgptlite.wanted.di
 
+import com.chatgptlite.wanted.constants.baseUrlOllama
 import com.chatgptlite.wanted.constants.baseUrlOpenAI
 import com.chatgptlite.wanted.constants.openAIApiKey
 import com.chatgptlite.wanted.data.api.OpenAIApi
@@ -40,7 +41,7 @@ object NetworkModule {
         val gson = GsonBuilder().setLenient().create()
 
         return Retrofit.Builder()
-            .baseUrl(baseUrlOpenAI)
+            .baseUrl(baseUrlOllama)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()

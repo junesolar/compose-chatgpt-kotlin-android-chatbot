@@ -2,15 +2,27 @@
 
 package com.chatgptlite.wanted.ui.conversations
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.media.AudioFormat
+import android.media.AudioRecord
+import android.media.MediaRecorder
+import android.util.Log
+import android.widget.Toast
+import androidx.core.app.ActivityCompat
 import androidx.lifecycle.ViewModel
 import com.chatgptlite.wanted.data.remote.ConversationRepository
 import com.chatgptlite.wanted.data.remote.MessageRepository
 import com.chatgptlite.wanted.data.remote.OpenAIRepositoryImpl
 import com.chatgptlite.wanted.models.*
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.withContext
 import java.util.*
 import javax.inject.Inject
+
 
 /**
  * Used to communicate between screens.
@@ -22,6 +34,7 @@ class ConversationViewModel @Inject constructor(
     private val messageRepo: MessageRepository,
     private val openAIRepo: OpenAIRepositoryImpl,
 ) : ViewModel() {
+
     private val _currentConversation: MutableStateFlow<String> =
         MutableStateFlow(Date().time.toString())
     private val _conversations: MutableStateFlow<MutableList<ConversationModel>> = MutableStateFlow(
@@ -40,8 +53,7 @@ class ConversationViewModel @Inject constructor(
     val isFabExpanded: StateFlow<Boolean> get() = _isFabExpanded
 
     private var stopReceivingResults = false
-
-
+    private val audioRecord by lazy { AudioRecorder() }
 
     suspend fun initialize() {
         _isFetching.value = true
@@ -107,6 +119,23 @@ class ConversationViewModel @Inject constructor(
 
         // Save to Firestore
         messageRepo.createMessage(newMessageModel.copy(answer = answerFromGPT))
+    }
+
+     suspend fun audioRecord(context: Context, start: Boolean) {
+        if (start) {
+            audioRecord.startRecording(context)
+        } else {
+            audioRecord.stopRecording()
+            val audioData = audioRecord.getRecordAudio()
+            if (audioData.isNotEmpty()) {
+                Log.d("joe", "音频大小: ${audioData.size}")
+                val flow = openAIRepo.chatWithVoice(audioData)
+                flow.onCompletion {
+                }.collect { value ->
+                    Toast.makeText(context, "结果：$value", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     private fun createConversationRemote(title: String) {
